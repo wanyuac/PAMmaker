@@ -1,0 +1,165 @@
+# This script produces summary statistics for the maxMAF information per allele in the output of SRST2.
+# It first makes a matrix of maxMAF (maximum minor-allele frequencies) based on allele occurrence in samples,
+# then it summarise maxMAF and produces a data frame for results.
+# 
+# The allelic presence/absence matrix (PAM) and the score file are tab-delimited files produced by mk_allele_matrix.sh
+# and assessAlleleCallUncertainty.R (under the directory PAMmaker/reliability_assessment), respectively. There are
+# extended allele identifiers attached to allele names in the PAM, such as StrA_1501.173.
+#
+# Usage:
+# This script can be either run with the following R script command
+#   Rscript --vanilla maxMAFmatrix.R [allelic PAM] [score file] [prefix for output filenames]
+# or run the functions in R (simply run the function definition part first).
+#
+# Author: Yu Wan <wanyuac@gmail.com>
+# Copyright 2018 Yu Wan
+# Licensed under the Apache License, Version 2.0
+# First edition: 31 Jan 2018, the latest edition: 1 Feb 2018
+
+# Define functions ###############
+searchAlleleID <- function(strain, allele, mapping) {
+    # This is a subordinate function of .replaceAlleleIDs.
+    i <- which(mapping$Sample == strain & mapping$AlleleID_base == allele)
+    if (length(i) > 0) {
+        new_id <- mapping$Allele[i]
+    } else {
+        print(paste0("Warning: allele ", allele, " from the score table is not found in the sample ", strain, " in the PAM."))
+        new_id <- NA
+    }
+    
+    return(new_id)
+}
+
+replaceAlleleIDs <- function(pam, score_tab) {
+    # Substitute allele names in the score table with allele names in the PAM
+    # For example, to replace "MphA_1663" in strain ERR134530 with "MphA_1663.141".
+    # This algorithm works only when there is only a single allele call per gene in each strain.
+    score_tab <- score_tab[, c("Sample", "Allele")]
+    
+    # Drop "?/*/*?" from allele names in the score file assuming all of the alleles listed in this file are reliable calls.
+    score_tab$Allele <- str_replace(string = score_tab$Allele, pattern = "([?*])+", replacement = "")
+    
+    # make a strain-allele table from PAM
+    strains <- rownames(pam)
+    alleles_all <- colnames(pam)
+    mapping <- data.frame(Sample = character(0), Allele = character(0), stringsAsFactors = FALSE)
+    for (s in strains) {
+        alleles <- alleles_all[as.logical(pam[s, ])]
+        n <- length(alleles)
+        if (n > 0) {
+            mapping <- rbind.data.frame(mapping,
+                                        data.frame(Sample = rep(s, times = length(alleles)), Allele = alleles,
+                                                   stringsAsFactors = FALSE))
+        }
+    }
+    
+    # make a new column for allele IDs without the extended index. For instance, convert MphA_1663.141 back into MphA_1663.
+    # Herein, the base name (e.g., MphA_1663 for MphA_1663.141) of allele IDs must not have any dots.
+    mapping$AlleleID_base <- sapply(mapping$Allele, function(a) strsplit(x = a, split = ".", fixed = TRUE)[[1]][1])
+    
+    # Substitute allele names in the score table
+	# This step introduces NA's when the sample or allele is missing in the data frame mapping (which comes from the allelic PAM).
+    new_ids <- as.character(mapply(searchAlleleID, score_tab$Sample, score_tab$Allele, MoreArgs = list(mapping = mapping)))
+    
+    return(new_ids)
+}
+
+maxMAFmatrix <- function(apam, score_table, sep = "\t") {
+    require(stringr)
+    
+    # Preparation of data ###############
+    # A PAM is a matrix of only zeros and ones and it is expected to only contain reliable allele calls.
+    cls <- class(apam)
+    if (cls == "character") {
+        pam <- as.matrix(read.table(file = apam, header = TRUE, sep = sep, row.names = 1,
+                                    check.names = FALSE, stringsAsFactors = FALSE))
+        strains <- rownames(pam)
+    } else if (cls == "data.frame") {
+        strains <- apam[, 1]  # assuming the first column stores sample names
+        pam <- as.matrix(apam[, -1])
+        rownames(pam) <- strains
+    } else if (cls == "matrix") {
+        pam <- apam
+        strains <- rownames(pam)
+    } else {
+        stop("Input error: the allelic PAM must be a file name, a data frame or a matrix.")
+    }
+    alleles <- colnames(pam)
+    
+    # import the score table as a data frame
+    cls <- class(score_table)
+    if (cls == "character") {
+        scores <- read.table(file = score_table, header = TRUE, sep = sep, stringsAsFactors = FALSE)
+    } else if (cls == "data.frame") {
+        scores <- score_table
+    } else if (cls == "matrix") {
+        scores <- as.data.frame(score_table, stringsAsFactors = FALSE)
+    } else {
+        stop("Input error: the score_table must be a file name, a data frame or a matrix.")
+    }
+    scores$Allele <- replaceAlleleIDs(pam, scores)
+    
+    # It is not surprising to see some alleles in the score table do not match to any alleles
+    # in the PAM because the PAM may be filtered for some purpose before being applied to this
+    # analysis. Nonetheless, since we only use the PAM for GeneMates, unmatched alleles in the
+    # score table do not matter for expected results. As such, this function discards those NA
+    # entries in the following step.
+    scores <- subset(scores, !is.na(Allele))
+    
+    # Generate a maxMAF matrix ###############
+    m <- matrix(NA, nrow = nrow(pam), ncol = ncol(pam))  # initialising the output matrix
+    rownames(m) <- strains
+    colnames(m) <- alleles
+    
+    # search for maxMAF for each allele call
+    for (a in alleles) {
+        for (s in strains) {
+            c <- pam[s, a]  # allele call for gene g in strain s
+            if (c == 1) {
+                m[s, a] <- round(scores$maxMAF[which(scores$Sample == s & scores$Allele == a)], digits = 6)  # XX.XXXX%
+            }  # keep NA else
+        }
+    }
+    
+    # return the maxMAF matrix, PAM and the score table whose allele names have been replaced.
+    return(list(m = m, pam = pam, scores = scores))
+}
+
+summariseMaxMAF <- function(m, pam) {
+    # m: a matrix of maxMAF; pam: an allelic PAM, which is used for counting the number of occurrence
+    # Initialisation
+    alleles <- colnames(pam)
+    sumry <- data.frame(Allele = character(0), Count = integer(0),
+                        Max = numeric(0), P75 = numeric(0), Median = numeric(0),
+                        P25 = numeric(0), Min = numeric(0), stringsAsFactors = FALSE)  # the summary table
+    
+    # Compute summary statistics
+    for (a in alleles) {
+        n <- sum(pam[, a])  # number of occrrence events, given 1 for presence and 0 for absence
+        maxmafs <- m[, a]
+        maxmafs <- maxmafs[!is.na(maxmafs)]  # ignore NA's
+        maxmaf_qu <- as.numeric(quantile(maxmafs, probs = c(0, 0.25, 0.5, 0.75, 1)))
+        sumry <- rbind.data.frame(sumry,
+                                  data.frame(Allele = a, Count = n,
+                                             Max = maxmaf_qu[5], P75 = maxmaf_qu[4],
+                                             Median = maxmaf_qu[3], P25 = maxmaf_qu[2],
+                                             Min = maxmaf_qu[1], stringsAsFactors = FALSE),
+                                  stringsAsFactors = FALSE)
+    }
+    sumry <- sumry[order(sumry$Max, decreasing = TRUE), ]
+    
+    return(sumry)
+}
+
+# Main program ###############
+argv <- commandArgs(trailingOnly = TRUE)  # create a vector of arguments
+maf <- maxMAFmatrix(apam = argv[1], score_table = argv[2])  # a list with elements m, pam and scores
+maf_summary <- summariseMaxMAF(m = maf[["m"]], pam = maf[["pam"]])
+
+# Save three kinds of results
+# Do not need to save PAM because it is not changed in this script.
+m <- cbind.data.frame(Sample = rownames(maf[["m"]]), as.data.frame(maf[["m"]]))
+rownames(m) <- NULL
+write.table(x = m, file = paste0(argv[3], "__maxMAFmatrix.tsv"), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(x = maf[["scores"]], file = paste0(argv[3], "__renamedScores.tsv"), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+write.table(x = maf_summary, file = paste0(argv[3], "__maxMAFsummary.tsv"), sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
