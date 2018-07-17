@@ -7,11 +7,11 @@
 # sample names and genomic mapping depths, respectively. It can be the file
 # RepStats.txt in RedDog outputs (so I assume the third column stores the depth
 # information).
-#   2. a merged tab-delimited score file containing columns: Sample, Allele, 
+#   2. a merged tab-delimited score file containing columns: Sample, Allele,
 # Avg_depth and maxMAF with allele names renamed based on sequence clustering.
 # It can be produced using maxMAFstats.R. It is not required that this table
 # contain all samples in RepStats.txt.
-# 
+#
 # Outputs:
 #   1. a scatter plot comparing maxMAF against putative copy numbers;
 #   2. a tab-delimited table for data underlying the plot.
@@ -29,7 +29,7 @@
 # Author: Yu Wan <wanyuac@gmail.com>
 # Copyright 2018 Yu Wan
 # Licensed under the Apache License, Version 2.0
-# First edition: 9 Mar 2018; the latest edition: 2 June 2018
+# First edition: 9 Mar 2018; the latest edition: 17 July 2018
 
 # Read arguments from the command line ###############
 library(optparse)
@@ -46,7 +46,9 @@ options <- list(
     make_option("--width", type = "integer", default = 160,
                 help = "Width (mm) of the image [default %default]"),
     make_option("--height", type = "integer", default = 160,
-                help = "Height (mm) of the output image [default %default]")
+                help = "Height (mm) of the output image [default %default]"),
+    make_option("--point_size", type = "double", default = 0.8,
+                help = "Point size [default %default]")
 )
 
 # Define functions that can be run separately ###############
@@ -54,19 +56,19 @@ mergeTables <- function(gd, scores, ingroup = NA) {
     # This function produces the table for plotting.
     scores <- scores[, c("Sample", "Allele", "Avg_depth", "maxMAF")]
     names(scores)[3] <- "Allelic_depth"
-    
+
     # filter samples when the ingroup argument is specified as a character vector
     if (! is.na(ingroup[1])) {
         scores <- subset(scores, Sample %in% ingroup)
     }
-    
+
     # match read depths
     gd <- gd[, c(1, 3)]
     names(gd) <- c("Sample", "Genomic_depth")
-	
+
 	# The following step does not require "scores" to contain all samples in "gd".
     scores$Genomic_depth <- gd$Genomic_depth[match(scores$Sample, gd$Sample)]
-	
+
 	# Calculate the ratio of allelic depth over the genomic read depth
     scores$AG_ratio <- round(scores$Allelic_depth / scores$Genomic_depth,
                              digits = 4)  # measures potential of being polyploid
@@ -108,7 +110,7 @@ grid_colour <- "#E0E0E0"  # colour for the major grid
 # Set the scale and breaks for the Y axis, otherwise the ticks do not match between
 # the left and main panels.
 p <- ggplot(data = tab, mapping = aes(x = AG_ratio, y = maxMAF)) +
-    geom_point(alpha = 0.80, colour = "red") +
+    geom_point(alpha = 0.80, colour = "red", size = opts$point_size) +
     geom_vline(xintercept = 1, colour = "grey25", size = 0.5) +
     annotate("text", x = 1.25, y = 0, label = "1", size = 4) +
     scale_x_continuous(trans = "log2") +
@@ -125,7 +127,7 @@ p <- ggplot(data = tab, mapping = aes(x = AG_ratio, y = maxMAF)) +
 
 # left panel: a boxplot of maxMAF
 pl <- ggplot(data = tab, mapping = aes(x = "", y = maxMAF)) +
-    geom_boxplot() +
+    geom_boxplot(outlier.size = opts$point_size) +
     labs(x = NULL, y = "maxMAF") + theme_bw() +
     scale_y_continuous(breaks = seq(0, 0.5, by = 0.1), limits = c(0, 0.5)) +
     theme(legend.position = "none",
@@ -139,7 +141,7 @@ pl <- ggplot(data = tab, mapping = aes(x = "", y = maxMAF)) +
 # The Y ticks must not be "expression(log[2](AG_ratio))" although the grid is
 # drawn at a log scale.
 pb <- ggplot(data = tab, mapping = aes(x = "", y = AG_ratio)) +
-    geom_boxplot() +
+    geom_boxplot(outlier.size = opts$point_size) +
     labs(x = NULL, y = "Allele-genome depth ratio") +
     scale_y_continuous(trans = "log2") + coord_flip() + theme_bw() +
     theme(legend.position = "none",
