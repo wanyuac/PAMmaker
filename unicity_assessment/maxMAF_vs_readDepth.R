@@ -29,7 +29,7 @@
 # Author: Yu Wan <wanyuac@gmail.com>
 # Copyright 2018 Yu Wan
 # Licensed under the Apache License, Version 2.0
-# First edition: 9 Mar 2018; the latest edition: 17 July 2018
+# First edition: 9 Mar 2018; the latest edition: 18 July 2018
 
 # Read arguments from the command line ###############
 library(optparse)
@@ -142,7 +142,7 @@ pl <- ggplot(data = tab, mapping = aes(x = "", y = maxMAF)) +
 # drawn at a log scale.
 pb <- ggplot(data = tab, mapping = aes(x = "", y = AG_ratio)) +
     geom_boxplot(outlier.size = opts$point_size) +
-    labs(x = NULL, y = "Allele-genome depth ratio") +
+    labs(x = NULL, y = "Allele-genome read depth ratio") +
     scale_y_continuous(trans = "log2") + coord_flip() + theme_bw() +
     theme(legend.position = "none",
           axis.text.x = element_text(size = 10), axis.title.x = element_text(size = 12),

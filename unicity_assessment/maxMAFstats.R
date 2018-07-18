@@ -21,7 +21,7 @@
 # Author: Yu Wan <wanyuac@gmail.com>
 # Copyright 2018 Yu Wan
 # Licensed under the Apache License, Version 2.0
-# First edition: 31 Jan 2018, the latest edition: 17 Jul 2018
+# First edition: 31 Jan 2018, the latest edition: 18 Jul 2018
 
 # Define functions ###############
 searchAlleleID <- function(strain, allele, mapping) {
@@ -149,17 +149,27 @@ summariseMaxMAF <- function(m, pam) {
     # m: a matrix of maxMAF; pam: an allelic PAM, which is used for counting the number of occurrence
     # Initialisation
     alleles <- colnames(pam)
-    sumry <- data.frame(Allele = character(0), Count = integer(0),
+
+    # Construct the summary table
+    # Count_score: number of alleles having scores and maxMAF information. Count_score <= Count.
+    sumry <- data.frame(Allele = character(0), Count = integer(0), Count_score = integer(0),
                         Max = numeric(0), P75 = numeric(0), Median = numeric(0),
-                        P25 = numeric(0), Min = numeric(0), stringsAsFactors = FALSE)  # the summary table
+                        P25 = numeric(0), Min = numeric(0), stringsAsFactors = FALSE)
 
     # Compute summary statistics
     for (a in alleles) {
         n <- sum(pam[, a])  # number of occrrence events, given 1 for presence and 0 for absence
-        maxmaf_qu <- as.numeric(quantile(m[, a], probs = c(0, 0.25, 0.5, 0.75, 1),
-                                         na.rm = TRUE))
+        maxmafs <- m[, a]
+        maxmafs <- maxmafs[!is.na(maxmafs)]
+        k <- length(maxmafs)
+        if (k > 0) {
+            maxmaf_qu <- as.numeric(quantile(maxmafs, probs = c(0, 0.25, 0.5, 0.75, 1)))
+        } else {  # no maxmaf information for this allele at all
+            maxmaf_qu <- rep(NA, times = 5)
+        }
+
         sumry <- rbind.data.frame(sumry,
-                                  data.frame(Allele = a, Count = n,
+                                  data.frame(Allele = a, Count = n, Count_score = k,
                                              Max = maxmaf_qu[5], P75 = maxmaf_qu[4],
                                              Median = maxmaf_qu[3], P25 = maxmaf_qu[2],
                                              Min = maxmaf_qu[1], stringsAsFactors = FALSE),
