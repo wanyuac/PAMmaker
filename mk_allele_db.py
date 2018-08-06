@@ -9,14 +9,17 @@ consisting of consensus sequences per strain. A strain name must be attached to 
 Notice since this script works on representative sequences identified using CD-HIT-EST, there is no redundancy in
 both input and output database.
 
-Dependency: Python version 3, BioPython
-Usage: python mk_allele_db.py -a modified_allele_matrix.txt -c *_all_consensus.fasta -o allele_db.fna
+Dependency: Python versions 2 and 3 compatible, BioPython
+Usage
+    python mk_allele_db.py -a modified_allele_matrix.txt -c *_all_consensus.fasta -o allele_db.fna
+    python mk_allele_db.py -a modified_allele_matrix.txt -r allele_name_replacement.txt -c *_all_consensus.fasta -o allele_db.fna
 
 Copyright 2017 Yu Wan <wanyuac@gmail.com>
 Licensed under the Apache License, Version 2.0
-Created on 28 Sep 2017. Lastest edition: 7 Jan 2018.
+Created on 28 Sep 2017. Lastest edition: 7 Aug 2018.
 """
 
+from __future__ import print_function
 from argparse import ArgumentParser
 from collections import defaultdict
 from Bio.Seq import Seq
@@ -30,6 +33,7 @@ def parse_arguments():
     parser = ArgumentParser(description = "Making a database of representative alleles produced by CD-HIT-EST")
     parser.add_argument("-a", type = str, required = True, help = "Allele profiles or presence/absence matrix, with extended allele IDs attached to allele names")
     parser.add_argument("-p", action = "store_true", help = "Flag it when a presence/absence matrix is provided instead of allele profiles")
+    parser.add_argument("-r", type = str, required = False, default = "", help = "A tab-delimited table produced by clustering_allele_variants.py to replace allele names")
     parser.add_argument("-c", nargs = "+", type = str, required = True, help = "A list of FASTA files for consensus sequences")
     parser.add_argument("-o", type = str, required = False, default = "allele_db.fna", help = "Output file (name and path)")
     parser.add_argument("-k", action = "store_true", help = "Set it to keep the name of the strain from which the allele sequence is drawn")
@@ -105,20 +109,24 @@ def get_allele_name(id):
     
 
 def import_consensus_seqs(fastas, strains_accept = None):
+    """
+    Return value: {allele : {strain : sequence}}. It can be a huge dictionary.
+    strains_accept: a list of strains to be accepted for the output
+    """
     cons_seqs = defaultdict(dict)
     for fasta in fastas:
         records = list(SeqIO.parse(fasta, "fasta"))       
         
-        # process the first record to determine if the current strain should be processed
+        # Process the first record to determine if the current strain should be processed
         record = records[0]
         strain = record.id.split("|")[1]
         if strains_accept != None:
-            if not strain in strains_accept:    
+            if strain not in strains_accept:    
                 continue  # stop the current "for" iteration and read the next FASTA file
         allele = get_allele_name(record.id)
         cons_seqs[allele][strain] = record.seq  # A strain must have a single allele per gene. So there is no append method required.
         
-        # process other records of the current strain when the "continue" command is not called
+        # Process other records of the current strain when the "continue" command is not called
         if len(records) > 1:  # when there are other sequences in the current FASTA file
             for record in records[1 : ]:
                 strain = record.id.split("|")[1]
@@ -126,21 +134,64 @@ def import_consensus_seqs(fastas, strains_accept = None):
                 cons_seqs[allele][strain] = record.seq
     return cons_seqs
 
+
+def import_mapping_table(tab_file):
+    """
+    Import the mapping table of allele names when it is specified
+    output data structure: {new_allele_name : {strain : previous_allele_name, ...}}
+    """
+    with open(tab_file, "rU") as f:
+        lines = f.read().splitlines()
+    lines = lines[1:]  # omit the header line
+    mapping = defaultdict(dict)
+    for line in lines:
+        strain, prev_name, _, new_name = line.split("\t")
+        mapping[new_name][strain] = prev_name
+    
+    return mapping
+
+
+def retrieve_prev_allele(allele, strain, mapping):
+    """
+    Find out the allele name in a FASTA file. The new allele name does not contain
+    any extended allele ID.
+    """
+    if allele in list(mapping.keys()):
+        if strain in list(mapping[allele].keys()):
+            prev_name = mapping[allele][strain]
+        else:
+            prev_name = allele
+    else:
+        prev_name = allele
+    
+    return prev_name
+
+
 def main():
     args = parse_arguments()
     
-    # sanity check
-    for f in ([args.a] + list(args.c)):  # args.c is a list when len(args.c) > 1, otherwise, it is a string. So use list() for safty.
+    # Sanity check
+    replace_names = args.r != ""
+    if replace_names:
+        files = [args.a, args.r] + list(args.c)
+    else:
+        files = [args.a] + list(args.c)
+    for f in files:  # args.c is a list when len(args.c) > 1, otherwise, it is a string. So use list() for safty.
         if not path.isfile(f):
             sys.exit("Error: file " + f + " is not accessible.")
     
+    # Get the mapping table for allele name substitution
+    if replace_names:
+        mapping = import_mapping_table(args.r)
+    
+    # The following two import functions produce the same data structure.
     if args.p:
         allele_tab, strains = import_PAM(args.a)  # read allele assignment from an allelic PAM
     else:
         allele_tab, strains = import_allele_table(args.a)  # import from allele profiles otherwise
     seqs = import_consensus_seqs(args.c, strains)  # establish an internal database of consensus sequences
     
-    # construct the allele database
+    # Construct the allele database
     out = open(args.o, "w")
     for allele in list(allele_tab.keys()):  # for each allele in the allele table, with the extended allele ID
         if args.n:  # "not clustered based on perfect matches"
@@ -151,25 +202,35 @@ def main():
             (i.e. have the same extended allele ID).
             """
             strains = allele_tab[allele]
-            for s in strains:
-                seq = seqs[allele.split(".")[0]][strain]
+            for strain in strains:
+                allele_name_root = allele.split(".")[0]
+                if replace_names:
+                    prev_allele = retrieve_prev_allele(allele_name_root, strain, mapping)
+                    seq = seqs[prev_allele][strain]
+                else:
+                    seq = seqs[allele_name_root][strain]
                 print(">" + allele + " " + strain, file = out)
                 print(seq, file = out)
-        else:
-            strain = allele_tab[allele][0]  # take the first strain to retrive the sequence
+        else:  # Sequences are clustered based on 100% nucleotide identity and length.
+            strain = allele_tab[allele][0]  # take the first strain to retrive the sequence as all other strains have the same sequence
             """
             The next command uses the split method to drop the extended allele ID from the complete allele ID as there is not
             such an ID in the FASTA file.
             """
-            seq = seqs[allele.split(".")[0]][strain]
+            allele_name_root = allele.split(".")[0]
+            if replace_names:
+                prev_allele = retrieve_prev_allele(allele_name_root, strain, mapping)
+                seq = seqs[prev_allele][strain]
+            else:
+                seq = seqs[allele_name_root][strain]
         
-            # print the sequence header first
+            # Print the sequence header first
             if args.k:
                 print(">" + allele + " " + strain, file = out)
             else:
-                print(">" + allele, file = out)
+                print(">" + allele, file = out)  # allele: the new name
             
-            # then print the sequence itself to complete the current record
+            # Then print the sequence itself to complete the current record
             print(seq, file = out)
     out.close()
 
