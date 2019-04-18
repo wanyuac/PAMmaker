@@ -54,7 +54,7 @@ Note that this table shows three dubious allele calls (that is, entries with a q
 
 ### 2.2. Uncertainty assessment of allele calls
 
-PAMmaker extracts summary statistics from score files produced by SRST2 to determine whether a dubious allele call (such as "FloR\_1212*?" and "SulI\_1616?") can be treated.
+PAMmaker extracts summary statistics from score files produced by SRST2 to determine whether a dubious allele call (such as "FloR\_1212*?" and "SulI\_1616?") can be treated. Readers may see a [blog post](https://microbialsystems.cn/post/srst2/) for a detailed explanation of SRST2's summary statistics that are used for determining allele calls.
 
 Supposing we can determine that SulI\_1616\*? and SulI\_1616? are reliable while FloR\_1212\*? is unreliable, then the gene profile becomes
 
@@ -72,3 +72,4 @@ python ~/PAMmaker/reliability_assessment/collate_topAllele_scores.py --allele_ca
 ```
 Rscript ~/PAMmaker/reliability_assessment/assessAlleleCallUncertainty.R --profiles aEPEC__compiledResults.txt --scores mergedScores__gene.scores --output aEPEC_srst2__reliableCalls
 ```
+
