@@ -26,13 +26,13 @@ Python version 2 and 3 compatible.
 Author: Yu Wan (wanyuac@gmail.com, GitHub: https://github.com/wanyuac)
 Copyright 2017 Yu Wan
 Licensed under the Apache License, Version 2.0
-First edition: 28 Nov 2015; the latest edition: 28 Jan 2018
+First edition: 28 Nov 2015; the latest edition: 26 May 2020
 """
 
 import sys
 
 def main():
-	with open(sys.argv[1], "rU") as f:
+	with open(sys.argv[1], "r") as f:  # Mode "rU" is deprecated in Python 3.8+.
 		contents = f.read().splitlines()
 		
 	print("\t".join(["cluster", "index", "seqid", "length", "identity", "representative"]))
