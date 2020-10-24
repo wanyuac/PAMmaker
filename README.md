@@ -2,10 +2,11 @@
 
 **Table of Contents**
 
-1. [Installation](#Installation)
+- [Installation](#Installation)
     - [Dependencies](#Dependencies)
     - [Subdirectories of code](#Subdirectories)
-2. [A step-by-step guide for creating PAMs](#guide)
+
+- [A step-by-step guide for creating PAMs](#guide)
     - [Running SRST2 for targeted gene detection](#srst2)
     - [Uncertainty assessment of allele calls](#uncertainty)
 
