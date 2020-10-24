@@ -1,5 +1,16 @@
 # PAMmaker: pipelines creating allelic presence-absence matrices from SRST2 results
 
+**Table of Contents**
+
+1. [Installation](#Installation)
+    - [Dependencies](#Dependencies)
+    - [Subdirectories of code](#Subdirectories)
+2. [A step-by-step guide for creating PAMs](#guide)
+    - [Running SRST2 for targeted gene detection](#srst2)
+    - [Uncertainty assessment of allele calls](#uncertainty)
+
+<br/>
+
 This repository consists of Python and R scripts that produce an allelic presence-absence matrix (PAM) from the outcome of SRST2-based gene detection for bacterial samples (strains or isolates). Assuming _m_ alleles are identified in _n_ samples, the allelic PAM _**A** = (a<sub>ij</sub>)_ is an n-by-m binary matrix, where _a<sub>ij</sub> = 1_ when the _j_-th allele is present in the _i_-th sample, and _a<sub>ij</sub> = 0_ otherwise.
 
 PAMmaker assumes that the gene detection process produces files in the output format of [SRST2](https://github.com/katholt/srst2). PAMmaker is a helper tool of R package [GeneMates](https://github.com/wanyuac/GeneMates) and it implements two pipelines for allele calls:  
@@ -9,28 +20,32 @@ PAMmaker assumes that the gene detection process produces files in the output fo
 
 Notice PAMmaker is not applicable to results of [geneDetector](https://github.com/wanyuac/geneDetector) (gene detection for genome assemblies), because every alignment of an assembly against a reference genome does not generate dubious allele calls or estimates of MAFs.
 
-## 1. Installation
+<br/>
+
+## 1. Installation<a name = "Installation"/>
 ```
 git clone https://github.com/wanyuac/PAMmaker.git
 ```
 
-### Dependencies
+### Dependencies<a name = "Dependencies"/>
 
 * [R](https://www.r-project.org) (>=3.0)
 * Python (versions 2 and 3 compatible)
 * Linux bash
 
-### Subdirectories
+### Subdirectories of code<a name = "Subdirectories"/>
 There are two subdirectories under PAMmaker:  
 
 * reliability\_assessment: scripts used for evaluating reliability of allele calls  
 * unicity\_assessment: scripts used for collecting evidence for identifying co-occurrence of alleles of the same gene in each sample  
 
-## 2. Usage
+<br/>
 
-This section demonstrates a typical procedure for processing SRST2-formatted results. In this demonstration, we create an allelic PAM from detected antimicrobial resistance genes (ARGs). Particularly, we use the SRST2-compatible ARG-ANNOT database version 2 ([ARGannot_r2.fasta](https://github.com/katholt/srst2/blob/master/data/ARGannot_r2.fasta)) as a reference database (hence the gene detection process to be launched is a targeted analysis).
+## 2. A step-by-step guide for creating PAMs<a name = "guide"/>
 
-### 2.1. Targeted gene detection
+This section demonstrates a typical procedure for processing SRST2-formatted results. In this demonstration, we create an allelic PAM and a genetic PAM from detected antimicrobial resistance genes (ARGs). Particularly, we use the SRST2-compatible ARG-ANNOT database version 2 ([ARGannot_r2.fasta](https://github.com/katholt/srst2/blob/master/data/ARGannot_r2.fasta)) as a reference database (hence the gene detection process to be launched is a targeted analysis).
+
+### 2.1. Running SRST2 for targeted gene detection<a name = "srst2"/>
 Assuming that an [SLURM Workload Manager](https://slurm.schedmd.com/documentation.html) has been installed on a Linux cluster, users can run SRST2 using the following command line to detect ARGs in multiple samples for which Illumina reads are accessible (see [SRST2 manual](https://github.com/katholt/srst2)):
 
 ```
@@ -52,9 +67,9 @@ In this demonstration, we only analyse two samples and assume their compiled all
 
 Note that this table shows three dubious allele calls (that is, entries with a question mark). Now our question is, whether allele calls FloR\_1212*?, SulI\_1616\*? and SulI\_1616? indicate alleles that are actually present in our samples or merely partial hits to reference sequences?
 
-### 2.2. Uncertainty assessment of allele calls
+### 2.2. Uncertainty assessment of allele calls<a name = "uncertainty"/>
 
-PAMmaker extracts summary statistics from score files produced by SRST2 to determine whether a dubious allele call (such as "FloR\_1212*?" and "SulI\_1616?") can be treated. Readers may see a [blog post](https://microbialsystems.cn/post/srst2/) for a detailed explanation of SRST2's summary statistics that are used for determining allele calls.
+PAMmaker extracts summary statistics from score files produced by SRST2 to determine whether a dubious allele call (such as "FloR\_1212*?" and "SulI\_1616?") can be treated. Readers may see a [blog post](https://www.microbialsystems.cn/en/post/srst2/) for a detailed explanation of SRST2's summary statistics that are used for determining allele calls.
 
 Supposing we can determine that SulI\_1616\*? and SulI\_1616? are reliable while FloR\_1212\*? is unreliable, then the gene profile becomes
 
