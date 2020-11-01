@@ -34,7 +34,7 @@ Other notes:
     of files if these files have the same name as those of the output files. You may override previous outputs if
     there is no prefix configured.
 
-Python version: 2.7.10
+Python versions: 2.7.10 and 3
 
 Author: Yu Wan (wanyuac@gmail.com)
 Development history: 8 April 2016, 17 July 2016, 16 August 2016, 27 June 2017, 28 Nov 2017 and 5 Dec 2017

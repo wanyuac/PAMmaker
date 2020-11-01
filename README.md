@@ -7,8 +7,9 @@
     - [Subdirectories of code](#Subdirectories)
 
 - [A step-by-step guide for creating a PAM from SRST2 outputs](#guide_srst2)
-    - [Running SRST2 for targeted gene detection](#srst2)
+    - [Targeted gene detection with SRST2](#srst2)
     - [Reliability assessment of allele calls](#uncertainty)
+    - [Creating the allelic PAM](#make_PAM)
 
 <br/>
 
@@ -44,7 +45,8 @@ PAMmaker requires three code interpreters and a Linux-compatible operating syste
 * [Python](https://www.python.org/) (versions 2 and 3 compatible)
 
 ### Subdirectories of code<a name = "Subdirectories"/>
-There are two subdirectories offering code for evaluating two characteristics of allele calls from SRST2, respectively:  
+
+Subdirectory `utility` stores scripts used by pipeline `mk_allele_matrix.sh`. In addition, there are two subdirectories offering code for evaluating two characteristics of allele calls from SRST2, respectively:  
 
 * `reliability`: scripts used for evaluating reliability of allele calls  
 * `unicity`: scripts used for collecting evidence for identifying co-occurrence of alleles of the same gene in each sample  
@@ -104,8 +106,46 @@ Scripts in sub-directory `reliability` perform this reliability assessment in tw
     python ~/PAMmaker/reliability/collate_topAllele_scores.py --allele_calls ./Gene_calls/*_aEPEC__genes__ARGannot_r2__results.txt --allele_scores ./Scores/*_aEPEC__*.ARGannot_r2.scores --prefix mergedScores
     ```
 
-- Step 2: filtering entries in the compiled allele table based on their scores. The output is a modified version of the input table. (`filter_allele_table.R` was known as `assessAlleleCallUncertainty.R`)
+    - Output file: `*.scores`, top-allele scores of clusters or genes.
+
+- Step 2: filtering entries in the compiled allele table by their quality scores. The output is a modified version of the input table. Of note, script `filter_allele_table.R` was known as `assessAlleleCallUncertainty.R`.
 
     ```R
     Rscript ~/PAMmaker/reliability/filter_allele_table.R --profiles aEPEC__compiledResults.txt --scores mergedScores__gene.scores --output aEPEC_srst2__reliableCalls
     ```
+
+    - Two TSV-format output files: (1) `*.scores`, scores of top alleles passed the quality filter implemented in this script; (2) `*.txt`, the filtered input table.
+
+    
+
+### 2.3. Creating the PAM<a name = "make_PAM" />
+
+Shell script `mk_allele_matrix.sh` implements a pipeline for creating an allelic PAM from SRST2 outputs.
+
+```bash
+sh ./mk_allele_matrix.sh
+
+This pipeline modifies a combined gene table that is made by SRST2 to make an allele table in accordance with sequence clustering.
+Dependencies: CD-HIT, Python 3 and R. Use this pipeline on a gene table after reliability assessment of its allele calls. In other
+words, the input gene table should not have any question marks (laid by SRST2 to denote uncertain allele calls).
+
+Arguments:
+    -p: the program you want to run for sequence clustering, including its path when it is not in the current working directory
+    -d: (optional) the directory where other scripts of this pipeline are located. Default: the current script directory.
+    -o: (optional) the output directory name not followed by a forward slash. Default: clusters
+    -a: arguments for CD-HIT
+    -f: input FASTA files for clustering
+    -g: a gene table from SRST2
+    -c: an optional tab-delimited file of allele-hit scores. It is produced by assessAlleleCallUncertainty.R in the directory reliability_assessment.
+    -s: stages to run. -s=all or -s=1,3,4 (maximum: 5) etc. Comma-delimited, no whitespace is allowed.
+    -e: whether allele names contain unique identifiers. 0: no; 1 (default): yes. For example, set -e=1 when allele names look like dfrA12_1.
+    -r: whether replace allele names with the representative allele name when their consensus sequences belong to the same cluster.
+
+Usage:
+    bash mk_allele_matrix.sh -p='apps/seq/cd-hit-est' -a='-c 1 -d 0 -s 1 -aL 1 -aS 1 -A 1 -uL 0 -uS 0 -p 1 -g 1' -f=*.fasta -g='profiles_res_genes.txt' -s=all -e=0
+    bash mk_allele_matrix.sh -p='apps/seq/cd-hit' -d='../PAMmaker' -o='clrst' -a='-c 1 -d 0 -s 1 -aL 1 -aS 1 -A 1 -uL 0 -uS 0 -p 1 -g 1' -f=*.fasta -g='profiles_res_genes.txt' -s='1,3,4' -e=1
+
+Warning:
+    Sequence headers in original input FASTA files will be changed by this program, where whitespaces are replaced with '|'. So you may want to compress and backup your raw data before running this pipeline.
+```
+
