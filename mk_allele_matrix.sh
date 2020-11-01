@@ -164,8 +164,8 @@ aPAM="${out_path}/allele_paMatrix.txt"  # output of convert_matrix.R
 if [[ "${stages[@]}" =~ "5" ]] && [ ! -z "$score_file" ] && [ -f "${aPAM}" ]; then
 	echo "Summarising maximum minor-allele-frequencies (MAF) for each allele call."
 	if [ "$rename" = true ]; then
-		Rscript ${code_path}/unicity_assessment/maxMAFstats.R -a ${out_path}/allele_paMatrix.txt -s ${score_file} -r ${out_path}/allele_name_replacement.txt -o ${out_path}/allele
+		Rscript ${code_path}/unicity/maxMAFstats.R -a ${out_path}/allele_paMatrix.txt -s ${score_file} -r ${out_path}/allele_name_replacement.txt -o ${out_path}/allele
 	else
-		Rscript ${code_path}/unicity_assessment/maxMAFstats.R -a ${out_path}/allele_paMatrix.txt -s ${score_file} -o ${out_path}/allele
+		Rscript ${code_path}/unicity/maxMAFstats.R -a ${out_path}/allele_paMatrix.txt -s ${score_file} -o ${out_path}/allele
 	fi
 fi

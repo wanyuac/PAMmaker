@@ -8,7 +8,7 @@
 
 - [A step-by-step guide for creating a PAM from SRST2 outputs](#guide_srst2)
     - [Running SRST2 for targeted gene detection](#srst2)
-    - [Uncertainty assessment of allele calls](#uncertainty)
+    - [Reliability assessment of allele calls](#uncertainty)
 
 <br/>
 
@@ -38,9 +38,9 @@ git clone https://github.com/wanyuac/PAMmaker.git
 
 PAMmaker requires three code interpreters and a Linux-compatible operating system:
 
-- [GNU bash](https://www.gnu.org/software/bash/)
+- [bash](https://www.gnu.org/software/bash/)
 
-* [R](https://www.r-project.org) (>=3.0)
+* [Rscript](https://www.r-project.org) (>=3.0)
 * [Python](https://www.python.org/) (versions 2 and 3 compatible)
 
 ### Subdirectories of code<a name = "Subdirectories"/>
@@ -53,48 +53,59 @@ There are two subdirectories offering code for evaluating two characteristics of
 
 ## 2. A step-by-step guide for creating a PAM from SRST2 outputs<a name = "guide_srst2"/>
 
-This section demonstrates a typical procedure for processing SRST2-formatted results. In this demonstration, we create an allelic PAM and a genetic PAM from detected antimicrobial resistance genes (ARGs). Particularly, we use the SRST2-compatible ARG-ANNOT database version 2 ([ARGannot_r2.fasta](https://github.com/katholt/srst2/blob/master/data/ARGannot_r2.fasta)) as a reference database (hence the gene detection process to be launched is a targeted analysis).
+This section demonstrates a typical procedure for processing SRST2-formatted results. In this demonstration, we create an allelic PAM and a genetic PAM from detected antimicrobial resistance genes (ARGs). Particularly, we use the SRST2-compatible ARG-ANNOT database version 2 ([ARGannot_r2.fasta](https://github.com/katholt/srst2/blob/master/data/ARGannot_r2.fasta)) as a reference database (hence the gene detection process to be launched is a targeted analysis).  
+
+
 
 ### 2.1. Targeted gene detection with SRST2<a name = "srst2"/>
-Assuming that an [SLURM Workload Manager](https://slurm.schedmd.com/documentation.html) has been installed on a Linux cluster, users can run SRST2 using the following command line to detect ARGs in multiple samples for which Illumina reads are accessible (see [SRST2 manual](https://github.com/katholt/srst2)):
+The way for running SRST2 on a number of read sets varies between computer systems (see [SRST2 manual](https://github.com/katholt/srst2)). Assuming an [SLURM Workload Manager](https://slurm.schedmd.com/documentation.html) has been installed on a Linux cluster, users can use the following command line to detect ARGs in multiple genomes whose Illumina reads are accessible:
 
 ```
 python srst2/scripts/slurm_srst2.py --script srst2/scripts/srst2.py --output demo --input_pe Reads/*_[1,2].fastq.gz --walltime '0-8:0:0' --threads 4 --memory 8192 --rundir ARGs --other_args "--gene_db srst2/data/ARGannot_r2.fasta --save_scores --report_all_consensus" > srst2_AMR.log
 ```
 
-Eventually, as demonstrated below, the user compiles allele profiles from individual samples into a single table, in which row names denote samples and column names are gene names. Each entry of the table is an allele call to a gene in the reference database. The command line for compiling individual results is as follows:
+SRST2 creates an allele profile for each genome. Then using the command line below, users compile allele profiles into a single table, in which row names denote genomes, column names denote allele clusters (often known as genes) defined in the reference database, and each entry denotes an allele call.
 
 ```
 python srst2/scripts/srst2.py --prev_output *_demo__genes__ARGannot_r2__results.txt --output Demo
 ```
 
-In this demonstration, we only analyse two samples and assume their compiled allele profile is 
+Supposing we only analyse genomes of two samples, the output table may look like:
+
+**Table 1**. Compiled allele calls from SRST2
+
+| Sample  | floR\_Phe    | sul1\_Sul   |
+|---------|-------------|-------------|
+| strain1 | floR\_1212\*? | sul1\_1616\*? |
+| strain2 | floR\_1212\*  | sul1\_1616?  |
+
+This table shows three dubious allele calls (entries with a question mark). Now users may want to know whether allele calls `floR_1212*?`, `sul1_1616*?` and `sul1_1616?` indicate alleles that are actually present in these samples or merely partial hits to reference sequences. Section 2.2 addresses this question.  
+
+
+
+### 2.2. Reliability assessment of allele calls<a name = "uncertainty"/>
+
+To determine whether a dubious allele call can be accepted for further analysis, PAMmaker extracts summary statistics from score files (one per sample) produced by SRST2. Users may read a [blog post](https://www.microbialsystems.cn/en/post/srst2/) for details of SRST2's summary statistics that are used by PAMmaker for this assessment.
+
+Supposing for Table 1 we can determine that `sul1_1616*?` and `sul1_1616?` are reliable while `floR_1212*?` remains suspicious, then the table of allele calls becomes
+
+**Table 2**. Allele calls after reliability assessment
 
 | Sample  | FloR\_Phe    | SulI\_Sul    |
 |---------|-------------|-------------|
-| strain1 | FloR\_1212\*? | SulI\_1616\*? |
-| strain2 | FloR\_1212\*  | SulI\_1616?  |
+| strain1 | - | sul1\_1616\* |
+| strain2 | floR\_1212\*  | sul1\_1616 |
 
-Note that this table shows three dubious allele calls (that is, entries with a question mark). Now our question is, whether allele calls FloR\_1212*?, SulI\_1616\*? and SulI\_1616? indicate alleles that are actually present in our samples or merely partial hits to reference sequences?
+Scripts in sub-directory `reliability` perform this reliability assessment in two steps:
 
-### 2.2. Uncertainty assessment of allele calls<a name = "uncertainty"/>
+- Step 1: retrieving and appending scores to allele calls in the compiled table (namely, top allele calls per gene/cluster per genome). Output file: `mergedScores__gene.scores`.
 
-PAMmaker extracts summary statistics from score files produced by SRST2 to determine whether a dubious allele call (such as "FloR\_1212*?" and "SulI\_1616?") can be treated. Readers may see a [blog post](https://www.microbialsystems.cn/en/post/srst2/) for a detailed explanation of SRST2's summary statistics that are used for determining allele calls.
+    ```python
+    python ~/PAMmaker/reliability/collate_topAllele_scores.py --allele_calls ./Gene_calls/*_aEPEC__genes__ARGannot_r2__results.txt --allele_scores ./Scores/*_aEPEC__*.ARGannot_r2.scores --prefix mergedScores
+    ```
 
-Supposing we can determine that SulI\_1616\*? and SulI\_1616? are reliable while FloR\_1212\*? is unreliable, then the gene profile becomes
+- Step 2: filtering entries in the compiled allele table based on their scores. The output is a modified version of the input table.
 
-| Sample  | FloR\_Phe    | SulI\_Sul    |
-|---------|-------------|-------------|
-| strain1 | - | SulI\_1616\* |
-| strain2 | FloR\_1212\*  | SulI\_1616  |
-
-We can use scripts under the sub-directory reliability\_assessment of PAMmaker to perform this uncertainty assessment. The procedure is comprised of two steps.
-
-```
-python ~/PAMmaker/reliability_assessment/collate_topAllele_scores.py --allele_calls ./Gene_calls/*_aEPEC__genes__ARGannot_r2__results.txt --allele_scores ./Scores/*_aEPEC__*.ARGannot_r2.scores --prefix mergedScores
-```
-
-```
-Rscript ~/PAMmaker/reliability_assessment/assessAlleleCallUncertainty.R --profiles aEPEC__compiledResults.txt --scores mergedScores__gene.scores --output aEPEC_srst2__reliableCalls
-```
-
+    ```R
+    Rscript ~/PAMmaker/reliability/assessAlleleCallUncertainty.R --profiles aEPEC__compiledResults.txt --scores mergedScores__gene.scores --output aEPEC_srst2__reliableCalls
+    ```
