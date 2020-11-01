@@ -1,4 +1,4 @@
-# This program converts an allele matrix into a presence/absence matrix of alleles.
+# This program converts an allele matrix into a presence-absence matrix of alleles (allelic PAM).
 #
 # Usage:
 #   Rscript convert_matrix.R modified_allele_matrix.txt out_dir
