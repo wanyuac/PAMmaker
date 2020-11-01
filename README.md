@@ -14,7 +14,7 @@
 
 This repository consists of Python and R scripts that produce an allelic presence-absence matrix (PAM) from [SRST2](https://github.com/katholt/srst2)-compatible outputs. Specifically, assuming _m_ alleles are identified in _n_ samples (strains or isolates), the allelic PAM _**A** = (a<sub>ij</sub>)_ is an n-by-m binary matrix, where _a<sub>ij</sub> = 1_ when the _j_-th allele is present in the _i_-th sample, and _a<sub>ij</sub> = 0_ otherwise.
 
-PAMmaker is a helper tool of R package [GeneMates](https://github.com/wanyuac/GeneMates) for creating mandatory inputs of functions `lmm` and `findPhysLink`. Moreover, it offers two pipelines for evaluating quality of SRST2's allele calls:  
+PAMmaker is a helper tool of R package [GeneMates](https://github.com/wanyuac/GeneMates) for creating mandatory inputs of main functions `findPhysLink` and `lmm`. Moreover, it offers two pipelines for evaluating quality of SRST2's allele calls:  
 
 * Reliability assessment, which uses allele-call scores to determine whether an allele call is reliable;  
 * Unicity assessment, which summarises minor-allele frequencies (MAFs) of each allele call across samples to show whether it has homologous alleles in some samples.  
@@ -36,15 +36,18 @@ git clone https://github.com/wanyuac/PAMmaker.git
 
 ### Dependencies<a name = "Dependencies"/>
 
+PAMmaker requires three code interpreters and a Linux-compatible operating system:
+
+- [GNU bash](https://www.gnu.org/software/bash/)
+
 * [R](https://www.r-project.org) (>=3.0)
-* Python (versions 2 and 3 compatible)
-* Linux bash
+* [Python](https://www.python.org/) (versions 2 and 3 compatible)
 
 ### Subdirectories of code<a name = "Subdirectories"/>
-There are two subdirectories under PAMmaker:  
+There are two subdirectories offering code for evaluating two characteristics of allele calls from SRST2, respectively:  
 
-* reliability\_assessment: scripts used for evaluating reliability of allele calls  
-* unicity\_assessment: scripts used for collecting evidence for identifying co-occurrence of alleles of the same gene in each sample  
+* `reliability`: scripts used for evaluating reliability of allele calls  
+* `unicity`: scripts used for collecting evidence for identifying co-occurrence of alleles of the same gene in each sample  
 
 <br/>
 
