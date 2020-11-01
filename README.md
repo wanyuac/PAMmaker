@@ -39,8 +39,7 @@ git clone https://github.com/wanyuac/PAMmaker.git
 
 PAMmaker requires three code interpreters and a Linux-compatible operating system:
 
-- [bash](https://www.gnu.org/software/bash/)
-
+* [bash](https://www.gnu.org/software/bash/)
 * [Rscript](https://www.r-project.org) (>=3.0)
 * [Python](https://www.python.org/) (versions 2 and 3 compatible)
 
