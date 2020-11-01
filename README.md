@@ -72,9 +72,9 @@ SRST2 creates an allele profile for each genome. Then using the command line bel
 python srst2/scripts/srst2.py --prev_output *_demo__genes__ARGannot_r2__results.txt --output Demo
 ```
 
-Supposing we only analyse genomes of two samples, the output table may look like:
+Supposing we only analyse genomes of two samples, the output table or gene table may look like:
 
-**Table 1**. Compiled allele calls from SRST2
+**Table 1**. Gene table of compiled allele calls from SRST2
 
 | Sample  | floR\_Phe    | sul1\_Sul   |
 |---------|-------------|-------------|
@@ -91,7 +91,7 @@ To determine whether a dubious allele call can be accepted for further analysis,
 
 Supposing for Table 1 we can determine that `sul1_1616*?` and `sul1_1616?` are reliable while `floR_1212*?` remains suspicious, then the table of allele calls becomes
 
-**Table 2**. Allele calls after reliability assessment
+**Table 2**. Gene table of allele calls passed reliability filter
 
 | Sample  | FloR\_Phe    | SulI\_Sul    |
 |---------|-------------|-------------|
@@ -100,7 +100,7 @@ Supposing for Table 1 we can determine that `sul1_1616*?` and `sul1_1616?` are r
 
 Scripts in sub-directory `reliability` perform this reliability assessment in two steps:
 
-- Step 1: retrieving and appending scores to allele calls in the compiled table (namely, top allele calls per gene/cluster per genome). Output file: `mergedScores__gene.scores`.
+- Retrieving and appending scores to allele calls in the compiled gene table (namely, top allele calls per gene/cluster per genome). Output file: `mergedScores__gene.scores`.
 
     ```python
     python ~/PAMmaker/reliability/collate_topAllele_scores.py --allele_calls ./Gene_calls/*_aEPEC__genes__ARGannot_r2__results.txt --allele_scores ./Scores/*_aEPEC__*.ARGannot_r2.scores --prefix mergedScores
@@ -108,24 +108,24 @@ Scripts in sub-directory `reliability` perform this reliability assessment in tw
 
     - Output file: `*.scores`, top-allele scores of clusters or genes.
 
-- Step 2: filtering entries in the compiled allele table by their quality scores. The output is a modified version of the input table. Of note, script `filter_allele_table.R` was known as `assessAlleleCallUncertainty.R`.
+- Filtering entries in the gene table by their quality scores. The output is a modified version of the input table. Of note, script `filter_allele_table.R` was known as `assessAlleleCallUncertainty.R`.
 
     ```R
     Rscript ~/PAMmaker/reliability/filter_allele_table.R --profiles aEPEC__compiledResults.txt --scores mergedScores__gene.scores --output aEPEC_srst2__reliableCalls
     ```
 
-    - Two TSV-format output files: (1) `*.scores`, scores of top alleles passed the quality filter implemented in this script; (2) `*.txt`, the filtered input table.
+    - Two TSV-format output files: (1) `*.scores`, scores of top alleles passed the quality filter implemented in this script; (2) `*.txt`, the filtered gene table.
 
     
 
 ### 2.3. Creating the PAM<a name = "make_PAM" />
 
-Shell script `mk_allele_matrix.sh` implements a pipeline for creating an allelic PAM from SRST2 outputs.
+Shell script `mk_allele_matrix.sh` implements a pipeline for creating an allelic PAM from a gene table.
 
 ```bash
 sh ./mk_allele_matrix.sh
 
-This pipeline modifies a combined gene table that is made by SRST2 to make an allele table in accordance with sequence clustering.
+"This pipeline modifies a combined gene table that is made by SRST2 to make an allele table in accordance with sequence clustering.
 Dependencies: CD-HIT, Python 3 and R. Use this pipeline on a gene table after reliability assessment of its allele calls. In other
 words, the input gene table should not have any question marks (laid by SRST2 to denote uncertain allele calls).
 
@@ -133,8 +133,8 @@ Arguments:
     -p: the program you want to run for sequence clustering, including its path when it is not in the current working directory
     -d: (optional) the directory where other scripts of this pipeline are located. Default: the current script directory.
     -o: (optional) the output directory name not followed by a forward slash. Default: clusters
-    -a: arguments for CD-HIT
-    -f: input FASTA files for clustering
+    -a: arguments for CD-HIT-EST
+    -f: input FASTA files for clustering (consensus allele sequences from SRST2)
     -g: a gene table from SRST2
     -c: an optional tab-delimited file of allele-hit scores. It is produced by assessAlleleCallUncertainty.R in the directory reliability_assessment.
     -s: stages to run. -s=all or -s=1,3,4 (maximum: 5) etc. Comma-delimited, no whitespace is allowed.
@@ -146,6 +146,30 @@ Usage:
     bash mk_allele_matrix.sh -p='apps/seq/cd-hit' -d='../PAMmaker' -o='clrst' -a='-c 1 -d 0 -s 1 -aL 1 -aS 1 -A 1 -uL 0 -uS 0 -p 1 -g 1' -f=*.fasta -g='profiles_res_genes.txt' -s='1,3,4' -e=1
 
 Warning:
-    Sequence headers in original input FASTA files will be changed by this program, where whitespaces are replaced with '|'. So you may want to compress and backup your raw data before running this pipeline.
+    Sequence headers in original input FASTA files will be changed by this program, where whitespaces are replaced with '|'. So you may want to compress and backup your raw data before running this pipeline."
 ```
 
+Example command line:
+
+```bash
+sh /vlsci/SG0006/shared/wan/scripts/cdhit_pip/mk_allele_matrix.sh -p="$HOME/software/cd-hit/bin/cd-hit-est" -a='-c 1 -d 0 -S 0 -AL 0 -AS 0 -U 0 -p 1 -g 1' -f='srst2_out/seq/*.fasta' -g='gene_table.txt' -s='all' -c='srst2__reliableCalls.scores'
+```
+
+
+
+This pipeline is comprised of four steps:
+
+- Appending a sample name to every sequence name in each FASTA file. This step is carried out with the `sed` command of Linux.
+- Clustering consensus sequences from SRST2 using `cd-hit-est`. The pipeline only supports clustering by perfect sequence identity at present.
+- Tabulating the `*.clstr` file from `cd-hit-est` (script `./utility/tabulate_cdhit.py`), appending suffices to allele names as extended identifiers when multiple alleles are identified under an original allele name in the input gene table (script `./utility/clustering_allele_variants.py`, and creating a database of representative sequences named by new allele names (script `./utility/mk_allele_db.py`).
+- Creating the allele matrix (script `./utility/convert_matrix.R`) and when the score file is provided, modifying allele names in the score file and produce summary statistics of `maxMAF` for each allele call in the score file.
+
+
+
+Outputs:
+
+- `allele_paMatrix.txt`, the allelic PAM;
+- `modified_gene_table.txt`, gene table with allele names updated for cluster information (namely, the table comprised of extended allele names);
+- `cluster_table.txt`, tabulated cluster information from the result of `cd-hit-est`;
+- `allele_db.fna`, a FASTA file of alleles in the allelic PAM;
+- `allele_name_replacement.txt`, a table linking original allele names to extended allele names based on sequence clustering.

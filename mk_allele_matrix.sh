@@ -6,16 +6,16 @@
 
 display_usage() {
 echo "
-This pipeline modifies a combined gene table that is made by SRST2 to make an allele table in accordance with sequence clustering.
-Dependencies: CD-HIT, Python 3 and R. Use this pipeline on a gene table after reliability assessment of its allele calls. In other
-words, the input gene table should not have any question marks (laid by SRST2 to denote uncertain allele calls).
+This pipeline modifies a combined gene table that is made by SRST2 to make an allele table in accordance with sequence clustering. Use this pipeline on an gene table after reliability assessment of its allele calls. In other words, the input gene table should not have any question marks (laid by SRST2 to denote uncertain allele calls).
+
+Dependencies: CD-HIT, Python 3 and R.
 
 Arguments:
     -p: the program you want to run for sequence clustering, including its path when it is not in the current working directory
 	-d: (optional) the directory where other scripts of this pipeline are located. Default: the current script directory.
 	-o: (optional) the output directory name not followed by a forward slash. Default: clusters
-    -a: arguments for CD-HIT
-    -f: input FASTA files for clustering
+    -a: arguments for CD-HIT-EST
+    -f: input FASTA files for clustering (consensus allele sequences from SRST2)
 	-g: a gene table from SRST2
 	-c: an optional tab-delimited file of allele-hit scores. It is produced by filter_allele_table.R in directory \'reliability\'.
     -s: stages to run. -s=all or -s=\'1,3,4\' (maximum: 5) etc. Comma-delimited, no whitespace is allowed.
@@ -27,8 +27,7 @@ Usage:
     bash mk_allele_matrix.sh -p='apps/seq/cd-hit' -d='../PAMmaker' -o='clrst' -a='-c 1 -d 0 -s 1 -aL 1 -aS 1 -A 1 -uL 0 -uS 0 -p 1 -g 1' -f=*.fasta -g='profiles_res_genes.txt' -s='1,3,4' -e=1
 
 Warning:
-    Sequence headers in original input FASTA files will be changed by this program, where whitespaces are replaced with '|'. So you may
-	want to compress and backup your raw data before running this pipeline.
+    Sequence headers in original input FASTA files will be changed by this program, where whitespaces are replaced with '|'. So you may want to compress and backup your raw data before running this pipeline.
 "
 }
 
@@ -129,34 +128,35 @@ if [[ "${stages[@]}" =~ "3" ]]; then
 	echo "Assigning allele identifiers into the genotype table."
     if [[ ${id_ext} = 1 ]]; then  # Allele names contain the unique identifiers.
 		if [ "$rename" = true ]; then
-			python ${code_path}/utility/clustering_allele_variants.py -i $allele_table -c ${out_path}/cluster_table.txt -r -o ${out_path}/modified_allele_matrix.txt -m ${out_path}/allele_name_replacement.txt
+			python ${code_path}/utility/clustering_allele_variants.py -i $allele_table -c ${out_path}/cluster_table.txt -r -o ${out_path}/modified_gene_table.txt -m ${out_path}/allele_name_replacement.txt
 		else
-			python ${code_path}/utility/clustering_allele_variants.py -i $allele_table -c ${out_path}/cluster_table.txt -o ${out_path}/modified_allele_matrix.txt
+			python ${code_path}/utility/clustering_allele_variants.py -i $allele_table -c ${out_path}/cluster_table.txt -o ${out_path}/modified_gene_table.txt
 		fi
     else
 		echo "No unique allele identifiers are present."
 		if [ "$rename" = true ]; then
-			python ${code_path}/utility/clustering_allele_variants.py -i $allele_table -c ${out_path}/cluster_table.txt -r -n -o ${out_path}/modified_allele_matrix.txt -m ${out_path}/allele_name_replacement.txt
+			python ${code_path}/utility/clustering_allele_variants.py -i $allele_table -c ${out_path}/cluster_table.txt -r -n -o ${out_path}/modified_gene_table.txt -m ${out_path}/allele_name_replacement.txt
 		else
-			python ${code_path}/utility/clustering_allele_variants.py -i $allele_table -c ${out_path}/cluster_table.txt -n -o ${out_path}/modified_allele_matrix.txt
+			python ${code_path}/utility/clustering_allele_variants.py -i $allele_table -c ${out_path}/cluster_table.txt -n -o ${out_path}/modified_gene_table.txt
         fi
     fi
 	
-	AM_present=`[ -f "${out_path}/modified_allele_matrix.txt" ]`
+	AM_present=`[ -f "${out_path}/modified_gene_table.txt" ]`
 	
 	if [ ! -f allele_db.fna ] && ${AM_present}; then
 		echo "Creating a database of representative sequences named by allele names."
 		if [ "$rename" = true ]; then
-			python ${code_path}/utility/mk_allele_db.py -a ${out_path}/modified_allele_matrix.txt -r ${out_path}/allele_name_replacement.txt -c ${fasta} -o ${out_path}/allele_db.fna
+			python ${code_path}/utility/mk_allele_db.py -a ${out_path}/modified_gene_table.txt -r ${out_path}/allele_name_replacement.txt -c ${fasta} -o ${out_path}/allele_db.fna
 		else
-			python ${code_path}/utility/mk_allele_db.py -a ${out_path}/modified_allele_matrix.txt -c ${fasta} -o ${out_path}/allele_db.fna
+			python ${code_path}/utility/mk_allele_db.py -a ${out_path}/modified_gene_table.txt -c ${fasta} -o ${out_path}/allele_db.fna
 		fi
 	fi
 fi
 
+# 4. Creating the allele matrix
 if [[ "${stages[@]}" =~ "4" ]] && ${AM_present}; then
 	echo "Converting the genotype table into an allelic presence-absence matrix."
-    Rscript ${code_path}/utility/convert_matrix.R ${out_path}/modified_allele_matrix.txt ${out_path}
+    Rscript ${code_path}/utility/convert_matrix.R ${out_path}/modified_gene_table.txt ${out_path}
 fi
 
 # Modify allele names in the score file and produce summary statistics of maxMAF for each allele call
