@@ -1,10 +1,14 @@
 #!/usr/bin/env Rscript
 # Assess uncertainty of allele calls with their scores.
 # MLST information in the input table of allele calls (specified by the --profiles option) will not be processed by this script.
+#
 # Command format:
 #   Rscript filter_allele_table.R --profiles [SRST2 geotyping table] --scores [merged SRST2 scores] --output [output filename without an extension]
 # Example:
 #   Rscript filter_allele_table.R --profiles Kp_srst2__compiledResults.txt --scores mergedScores__gene.scores --output Kp_srst2__reliableCalls
+#
+# This script was known as assessAlleleCallUncertainty.R.
+# 
 # Author: Yu Wan (wanyuac@gmail.com)
 # Development history: 2 Aug 2016, 16 Apr 2017
 # Licence: Apache-2.0

@@ -104,8 +104,8 @@ Scripts in sub-directory `reliability` perform this reliability assessment in tw
     python ~/PAMmaker/reliability/collate_topAllele_scores.py --allele_calls ./Gene_calls/*_aEPEC__genes__ARGannot_r2__results.txt --allele_scores ./Scores/*_aEPEC__*.ARGannot_r2.scores --prefix mergedScores
     ```
 
-- Step 2: filtering entries in the compiled allele table based on their scores. The output is a modified version of the input table.
+- Step 2: filtering entries in the compiled allele table based on their scores. The output is a modified version of the input table. (`filter_allele_table.R` was known as `assessAlleleCallUncertainty.R`)
 
     ```R
-    Rscript ~/PAMmaker/reliability/assessAlleleCallUncertainty.R --profiles aEPEC__compiledResults.txt --scores mergedScores__gene.scores --output aEPEC_srst2__reliableCalls
+    Rscript ~/PAMmaker/reliability/filter_allele_table.R --profiles aEPEC__compiledResults.txt --scores mergedScores__gene.scores --output aEPEC_srst2__reliableCalls
     ```
