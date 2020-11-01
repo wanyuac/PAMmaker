@@ -90,9 +90,9 @@ To determine whether a dubious allele call can be accepted for further analysis,
 
 Supposing for Table 1 we can determine that `sul1_1616*?` and `sul1_1616?` are reliable while `floR_1212*?` remains suspicious, then the table of allele calls becomes
 
-**Table 2**. Gene table of allele calls passed reliability filter
+**Table 2**. Gene table of allele calls passed the reliability filter
 
-| Sample  | FloR\_Phe    | SulI\_Sul    |
+| Sample  | floR\_Phe  | sul1\_Sul    |
 |---------|-------------|-------------|
 | strain1 | - | sul1\_1616\* |
 | strain2 | floR\_1212\*  | sul1\_1616 |
