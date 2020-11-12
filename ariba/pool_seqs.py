@@ -5,7 +5,7 @@ Pool FASTA files of ARIBA's output allele sequences into one file and append sam
 the same format as that for SRST2's output consensus sequences).
 
 Command demonstration:
-  python -i *_genes.fna -o alleles.fna -e '_genes.fna'
+    python pool_seqs.py -i *_genes.fna -o alleles.fna -e '_genes.fna'
 
 Copyright (C) 2020 Yu Wan <wanyuac@126.com>
 Licensed under the GNU General Public Licence version 3 (GPLv3) <https://www.gnu.org/licenses/>.
