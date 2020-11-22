@@ -5,11 +5,16 @@
 - [Installation](#Installation)
     - [Dependencies](#Dependencies)
     - [Subdirectories of code](#Subdirectories)
-
-- [A step-by-step guide for creating a PAM from SRST2 outputs](#guide_srst2)
+- [Creating PAMs from SRST2 outputs](#guide_srst2)
     - [Targeted gene detection with SRST2](#srst2)
     - [Reliability assessment of allele calls](#uncertainty)
     - [Creating the allelic PAM](#make_PAM)
+- [Creating PAMs from ARIBA outputs](#ariba)
+    - [Preparing a ResFinder reference database](#resfinder)
+    - [Gene detection from short reads](#run_ariba)
+    - [Pooling allele sequences from all samples](#pool_seqs)
+    - [Clustering pooled allele sequences](#seq_clustering)
+    - [Creating an allelic PAM from tabulated CD-HIT-EST output](#makePAM)
 
 <br/>
 
@@ -35,6 +40,8 @@ Wan, Y., Wick, R.R., Zobel, J., Ingle, D.J., Inouye, M., Holt, K.E. GeneMates: a
 git clone https://github.com/wanyuac/PAMmaker.git
 ```
 
+
+
 ### Dependencies<a name = "Dependencies"/>
 
 PAMmaker requires three code interpreters and a Linux-compatible operating system:
@@ -42,6 +49,8 @@ PAMmaker requires three code interpreters and a Linux-compatible operating syste
 * [bash](https://www.gnu.org/software/bash/)
 * [Rscript](https://www.r-project.org) (>=3.0)
 * [Python](https://www.python.org/) (versions 2 and 3 compatible)
+
+
 
 ### Subdirectories of code<a name = "Subdirectories"/>
 
@@ -52,7 +61,7 @@ Subdirectory `utility` stores scripts used by pipeline `mk_allele_matrix.sh`. In
 
 <br/>
 
-## 2. A step-by-step guide for creating a PAM from SRST2 outputs<a name = "guide_srst2"/>
+## 2. Creating PAMs from SRST2 outputs<a name = "guide_srst2"/>
 
 This section demonstrates a typical procedure for processing SRST2-formatted results. In this demonstration, we create an allelic PAM and a genetic PAM from detected antimicrobial resistance genes (ARGs). Particularly, we use the SRST2-compatible ARG-ANNOT database version 2 ([ARGannot_r2.fasta](https://github.com/katholt/srst2/blob/master/data/ARGannot_r2.fasta)) as a reference database (hence the gene detection process to be launched is a targeted analysis).  
 
@@ -172,3 +181,143 @@ Outputs:
 - `cluster_table.txt`, tabulated cluster information from the result of `cd-hit-est`;
 - `allele_db.fna`, a FASTA file of alleles in the allelic PAM;
 - `allele_name_replacement.txt`, a table linking original allele names to extended allele names based on sequence clustering.
+
+<br/>
+
+## 3. Creating PAMs from ARIBA outputs<a name = "ariba" />
+
+PAMmaker currently offers scripts converting ARIBA outputs when a [ResFinder](https://cge.cbs.dtu.dk/services/ResFinder/) database is used. These scripts are stored in the subdirectory `ariba`.
+
+Dependencies:
+
+- Python 3
+- Python module `pandas`
+- [CD-HIT-EST](http://weizhongli-lab.org/cd-hit/)
+
+Desirable software/code:
+
+- [Nextflow](https://www.nextflow.io/)
+- [Singularity](https://sylabs.io/docs/)
+- [portable batch system](https://en.wikipedia.org/wiki/Portable_Batch_System) (PBS)
+- [ARIBA\_toolkit](https://github.com/wanyuac/ARIBA_toolkit)
+
+
+
+### 3.1. Preparing a ResFinder reference database<a name = "resfinder" />
+
+This step is performed in accordance with a [wiki page](https://github.com/sanger-pathogens/ariba/wiki/Task:-prepareref) of ARIBA.
+
+```bash
+# Take a note of the commit hash number for reproducibility
+# Outputs: resfinder.fa, resfinder.tsv
+ariba getref resfinder resfinder
+
+# Cluster sequences at 80% nucleotide identity
+ariba prepareref -f resfinder.fa -m resfinder.tsv --cdhit_min_id 0.8 resfinder
+```
+
+Essential outputs for our downstream analysis are `02.cdhit.gene.fa` and `02.cdhit.clusters.tsv`. Since the ResFinder database only offers information of acquired antimicrobial resistance (AMR) genes, output files `02.cdhit.gene.varonly.fa`, `02.cdhit.noncoding.fa`,  and`02.cdhit.noncoding.varonly.fa` are empty.
+
+
+
+### 3.2. Gene detection from short reads<a name = "run_ariba" />
+
+ARIBA takes as input short reads (e.g., those from Illumina sequencers) for gene detection. Assuming Singularity and a PBS has been installed on users' computer systems, a [Nextflow pipeline](https://github.com/wanyuac/ARIBA_toolkit) (`ariba.nf` and its configuration file `ariba.config`) has been developed for users to run ARIBA (installed as a Singularity-compatible Docker image) for detecting AMR genes in multiple samples. This pipeline is particularly useful when a high-performance computing cluster has a restriction on queue sizes. Nonetheless, users may user their preferred method but need to rename output files into those listed below.
+
+```bash
+# Install ARIBA's Singularity image through Docker
+singularity pull docker://staphb/ariba  # Rename the Image file to ariba.sif
+
+# Run the ARIBA Nextflow pipeline for gene detection
+nextflow -Djava.io.tmpdir=$PWD run ariba.nf --fastq "$PWD/reads/*_{1,2}.fastq.gz" --db_dir $HOME/db/resfinder --output_dir output -c ariba.config -profile pbs --queue_size 15 -with-singularity $HOME/software/docker/ariba.sif
+```
+
+An example of information printed on the terminal by Nextflow:
+
+```bash
+N E X T F L O W  ~  version 20.07.1
+Launching `ariba.nf` [suspicious_pasteur] - revision: 916cbaaedc
+Successfully created directory output
+Successfully created directory output/report
+Successfully created directory output/gene
+Successfully created directory output/stats
+Successfully created directory output/log
+Successfully created directory output/contig
+executor >  pbspro (73)
+[c1/4c3501] process > gene_detection (68) [100%] 72 of 72 ✔
+[b6/427724] process > summarise_reports   [100%] 1 of 1 ✔
+Completed at: 11-Nov-2020 11:38:39
+Duration    : 34m 56s
+CPU hours   : 6.1
+Succeeded   : 73
+```
+
+Output files required for downstream steps are:
+
+- `[sample]_genes.fna`: renamed from `assembled_genes.fa.gz` comprised of assembled allele sequences of each sample. Users not using this Nextflow pipeline need to decompress and rename `assembled_genes.fa.gz` of each sample accordingly and ensure all these FASTA files can be accessed under a single directory.
+
+Users may also refer to `ariba_summary.csv` for compiled genetic profiles of all samples. This file can be converted into a genetic PAM by substituting 1 and 0 for "yes" and "no" in its content.
+
+
+
+### 3.3. Pooling allele sequences from all samples<a name = "pool_seqs" />
+
+This step uses script `pool_seqs.py`.
+
+```bash
+python PAMmaker/ariba/pool_seqs.py -i ./gene/*_genes.fna -o alleles.fna -e '_genes.fna'
+
+# Parameters of the script
+python pool_seqs.py -h
+usage: pool_seqs.py [-h] -i I [I ...] [-o O] [-e E]
+
+Pool ARIBA's output allele sequences into one FASTA file and append sample names to sequence IDs
+
+optional arguments:
+  -h, --help    show this help message and exit
+  -i I [I ...]  Input FASTA files
+  -o O          Output FASTA file of pooled allele sequences
+  -e E          Filename extension to be removed for sample names
+```
+
+Output file: `alleles.fna`, a multi-FASTA file of pooled allele sequences. In this file, a sample name is appended to each sequence ID.
+
+
+
+### 3.4. Clustering pooled allele sequences<a name = "seq_clustering" />
+
+Despite the demonstration below, it is not necessary to cluster alleles based on complete sequence identity. Users may want to tolerate a few mismatches for their study. This is a feature differing from the SRST2-based pipeline described in Section [2](#guide_srst2).
+
+```bash
+# Clustering based on complete sequence identity
+cd-hit-est -i alleles.fna -o alleles_rep.fna -c 1.0 -d 0 -s 0.0 -aL 1.0 -aS 1.0 -g 1
+
+# Tabulate clustering results from cd-hit-est
+python PAMmaker/utility/tabulate_cdhit.py alleles_rep.fna.clstr > alleles_rep.fna.clstr.tsv
+```
+
+
+
+### 3.5. Creating an allelic PAM from tabulated CD-HIT-EST output<a name = "makePAM" />
+
+```bash
+python PAMmaker/ariba/clusters2pam.py -i alleles_rep.fna.clstr.tsv -om allelic_PAM.tsv -ot alleles_rep.fna.clstr_updated.tsv
+
+# Script parameters
+python clusters2pam.py -h
+usage: clusters2pam.py [-h] -i I [-om OM] [-ot OT]
+
+Creating an allelic presence-absence matrix from a table of sequence clusters
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -i I        Input FASTA files
+  -om OM      Output presence-absence matrix in TSV format
+  -ot OT      Output table about sequence clusters
+```
+
+Outputs of this example:
+
+- `allelic_PAM.tsv`: The objective allelic PAM;
+- `alleles_rep.fna.clstr_updated.tsv`: A table of clustering information, including cluster IDs (`gene`) and sample names.
+
