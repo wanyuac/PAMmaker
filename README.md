@@ -5,12 +5,16 @@
 - [Installation](#Installation)
     - [Dependencies](#Dependencies)
     - [Subdirectories of code](#Subdirectories)
-
 - [Creating PAMs from SRST2 outputs](#guide_srst2)
     - [Targeted gene detection with SRST2](#srst2)
     - [Reliability assessment of allele calls](#uncertainty)
     - [Creating the allelic PAM](#make_PAM)
 - [Creating PAMs from ARIBA outputs](#ariba)
+    - [Preparing a ResFinder reference database](#resfinder)
+    - [Gene detection from short reads](#run_ariba)
+    - [Pooling allele sequences from all samples](#pool_seqs)
+    - [Clustering pooled allele sequences](#seq_clustering)
+    - [Creating an allelic PAM from tabulated CD-HIT-EST output](#makePAM)
 
 <br/>
 
@@ -180,7 +184,7 @@ Outputs:
 
 <br/>
 
-## 3. Creating PAMs from ARIBA outputs
+## 3. Creating PAMs from ARIBA outputs<a name = "ariba" />
 
 PAMmaker currently offers scripts converting ARIBA outputs when a [ResFinder](https://cge.cbs.dtu.dk/services/ResFinder/) database is used. These scripts are stored in the subdirectory `ariba`.
 
@@ -199,7 +203,7 @@ Desirable software/code:
 
 
 
-### 3.1. Preparing a ResFinder reference database
+### 3.1. Preparing a ResFinder reference database<a name = "resfinder" />
 
 This step is performed in accordance with a [wiki page](https://github.com/sanger-pathogens/ariba/wiki/Task:-prepareref) of ARIBA.
 
@@ -216,7 +220,7 @@ Essential outputs for our downstream analysis are `02.cdhit.gene.fa` and `02.cdh
 
 
 
-### 3.2. Gene detection from short reads
+### 3.2. Gene detection from short reads<a name = "run_ariba" />
 
 ARIBA takes as input short reads (e.g., those from Illumina sequencers) for gene detection. Assuming Singularity and a PBS has been installed on users' computer systems, a [Nextflow pipeline](https://github.com/wanyuac/ARIBA_toolkit) (`ariba.nf` and its configuration file `ariba.config`) has been developed for users to run ARIBA (installed as a Singularity-compatible Docker image) for detecting AMR genes in multiple samples. This pipeline is particularly useful when a high-performance computing cluster has a restriction on queue sizes. Nonetheless, users may user their preferred method but need to rename output files into those listed below.
 
@@ -256,7 +260,7 @@ Users may also refer to `ariba_summary.csv` for compiled genetic profiles of all
 
 
 
-### 3.3. Pooling allele sequences from all samples
+### 3.3. Pooling allele sequences from all samples<a name = "pool_seqs" />
 
 This step uses script `pool_seqs.py`.
 
@@ -280,7 +284,7 @@ Output file: `alleles.fna`, a multi-FASTA file of pooled allele sequences. In th
 
 
 
-### 3.4. Clustering pooled allele sequences
+### 3.4. Clustering pooled allele sequences<a name = "seq_clustering" />
 
 Despite the demonstration below, it is not necessary to cluster alleles based on complete sequence identity. Users may want to tolerate a few mismatches for their study. This is a feature differing from the SRST2-based pipeline described in Section [2](#guide_srst2).
 
@@ -294,7 +298,7 @@ python PAMmaker/utility/tabulate_cdhit.py alleles_rep.fna.clstr > alleles_rep.fn
 
 
 
-### 3.5. Creating an allelic PAM from tabulated CD-HIT-EST output
+### 3.5. Creating an allelic PAM from tabulated CD-HIT-EST output<a name = "makePAM" />
 
 ```bash
 python PAMmaker/ariba/clusters2pam.py -i alleles_rep.fna.clstr.tsv -om allelic_PAM.tsv -ot alleles_rep.fna.clstr_updated.tsv
