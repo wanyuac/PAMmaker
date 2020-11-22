@@ -1,11 +1,3 @@
 # Converting ARIBA outputs to an allelic PAM
 
-Yu Wan
-
-
-
-## Steps
-
-### Modifying summary table
-
-Replace both "\_report.tsv" and ".match" with "".
+This subdirectory offers scripts for converting ARIBA outputs to an allelic PAM and a genetic PAM. Please see README under the main directory for a step-by-step guide.
