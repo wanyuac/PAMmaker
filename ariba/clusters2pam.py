@@ -11,7 +11,7 @@ Dependency: module pandas, Python v3
 
 Copyright (C) 2020 Yu Wan <wanyuac@126.com>
 Licensed under the GNU General Public Licence version 3 (GPLv3) <https://www.gnu.org/licenses/>.
-Publication: 11 Nov 2020; the latest modification: 12 Nov 2020
+Publication: 11 Nov 2020; the latest modification: 29 Dec 2020
 """
 
 import os
@@ -22,7 +22,7 @@ from argparse import ArgumentParser
 def parse_arguments():
     parser = ArgumentParser(description = "Creating an allelic presence-absence matrix from a table of sequence clusters",\
              epilog = "This is a helper script of R package GeneMates.")
-    parser.add_argument("-i", dest = "i", type = str, required = True, help = "Input FASTA files")
+    parser.add_argument("-i", dest = "i", type = str, required = True, help = "Input tab-delimited table of clusters from CD-HIT-EST")
     parser.add_argument("-om", dest = "om", type = str, required = False, default = "allelic_PAM.tsv", help = "Output presence-absence matrix in TSV format")
     parser.add_argument("-ot", dest = "ot", type = str, required = False, default = "clusters.tsv", help = "Output table about sequence clusters")
     return parser.parse_args()
