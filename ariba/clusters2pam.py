@@ -82,7 +82,7 @@ def create_allelic_pam(df):
             allele = gene + "." + str(genes_visited[gene])  # Adding a suffix for making an allele name. Example result: sul1.1, sul1.2.
         else:
             genes_visited[gene] = 0  # Record a new gene encountered
-            allele = gene
+            allele = gene  # The first allele of the gene will not have an extended index appended.
         pa_vec = list()  # A binary vector about presence-absence of the current allele across samples
         samples_c = df_c["sample"].tolist()  # Samples in which the current allele is detected
         for s in samples:
