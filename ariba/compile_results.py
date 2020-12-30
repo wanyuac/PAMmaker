@@ -39,7 +39,9 @@ def parse_arguments():
     parser.add_argument("--out_table", dest = "out_table", type = str, required = False, default = "alleles.tsv", help = "Output table about identified alleles")
     parser.add_argument("--ext_fastas", dest = "ext_fastas", type = str, required = False, default = "_genes.fna", help = "Filename extension of input FASTA files to be removed for sample names")
     parser.add_argument("--ext_reports", dest = "ext_reports", type = str, required = False, default = "_report.tsv", help = "Filename extension of input report files to be removed for sample names")
+    
     return parser.parse_args()
+
 
 def main():
     args = parse_arguments()
@@ -68,7 +70,9 @@ def main():
     fasta_out.close()
     table_out.close()
     print(str(sample_count) + " samples have been successfully processed.", file = sys.stdout)
+
     return
+
 
 def pair_input_files(input_fastas, input_reports, ext_fastas, ext_reports):
     """
@@ -83,7 +87,9 @@ def pair_input_files(input_fastas, input_reports, ext_fastas, ext_reports):
             samples[s] = Sample(fasta = f, report = samples_reports[s])
         else:
             print("Warning: skipped sample " + s + " due to absence of its report file.", file = sys.stderr)
+ 
     return samples
+
 
 def get_sample_names(input_files, ext):
     """ A subordinate function of pair_input_files """
@@ -92,7 +98,9 @@ def get_sample_names(input_files, ext):
         f_base = os.path.basename(f)
         sample = f_base.replace(ext, "")  # No change applies if ext is not found in the filename
         fs[sample] = f
+    
     return fs
+
 
 def import_report(report_file):
     """
@@ -102,7 +110,9 @@ def import_report(report_file):
     report = pandas.read_csv(report_file, sep = "\t", index_col = None)  # Returns a data frame
     report = report[["ref_name", "cluster", "ref_len", "ref_base_assembled", "ctg", "pc_ident"]]  # Select columns using a list of column names
     report = report.drop_duplicates()  # Remove duplicated rows as ARIBA prints each mutation on a separate row
+    
     return report
+
 
 def import_fasta(fasta_file):
     """ Reads ARIBA's output gene file for a given sample and parse sequence headers """
@@ -112,7 +122,9 @@ def import_fasta(fasta_file):
         seqid_fields = seqid.split(".")  # First element: cluster name; 1st - 5th fields make up the contig name.
         allele_id = ".".join(seqid_fields[0 : 5])  # This ID can handle scenarios where multiple alleles of the same cluster are found, although these scenarios are rare.
         fasta[allele_id] = str(seq_record.seq)  # Usual scenario
+    
     return fasta
+
 
 if __name__ == "__main__":
     main()
