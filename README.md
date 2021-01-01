@@ -14,7 +14,7 @@
     - [Gene detection from short reads](#run_ariba)
     - [Pooling allele sequences from all samples](#pool_seqs)
     - [Clustering pooled allele sequences](#seq_clustering)
-    - [Creating an allelic PAM from tabulated CD-HIT-EST output](#makePAM)
+    - [Creating an allelic PAM from the tabulated CD-HIT-EST output](#makePAM)
 
 <br/>
 
@@ -262,35 +262,44 @@ Users may also refer to `ariba_summary.csv` for compiled genetic profiles of all
 
 ### 3.3. Pooling allele sequences from all samples<a name = "pool_seqs" />
 
-This step uses script `pool_seqs.py`.
+This step uses script `compile_results.py` to compile ARIBA's outputs for individual samples. Specifically, the script performs two tasks:
+
+- Create a table of identified alleles for all samples with columns: sample, cluster, allele, exact match or variant of the reference allele, percent of nucleotide identity, coverage of the assembled allele to its reference.
+- Pool FASTA files of ARIBA's output allele sequences into one file and append sample names to sequence IDs (in the same format as that for SRST2's output consensus sequences).
+
+**Example command**
 
 ```bash
-python PAMmaker/ariba/pool_seqs.py -i ./gene/*_genes.fna -o alleles.fna -e '_genes.fna'
-
-# Parameters of the script
-python pool_seqs.py -h
-usage: pool_seqs.py [-h] -i I [I ...] [-o O] [-e E]
-
-Pool ARIBA's output allele sequences into one FASTA file and append sample names to sequence IDs
-
-optional arguments:
-  -h, --help    show this help message and exit
-  -i I [I ...]  Input FASTA files
-  -o O          Output FASTA file of pooled allele sequences
-  -e E          Filename extension to be removed for sample names
+python PAMmaker/ariba/compile_results.py --in_fastas gene/*_genes.fna --in_reports report/*_report.tsv --out_fasta alleles.fna --out_table report.tsv --ext_fastas '_genes.fna' --ext_reports '_report.tsv' 2> compile_results.err
 ```
 
 Output file: `alleles.fna`, a multi-FASTA file of pooled allele sequences. In this file, a sample name is appended to each sequence ID.
+
+Note that it is normal to see warnings (in file `compile_results.err`) about absence of alleles from the report file in the FASTA file, because alleles in the report file may not have adequate nucleotide identities or reference coverages following cut-offs set for ARIBA runs (By default, 90% for both cut-offs).
+
+**Parameters**
+
+```bash
+python compile_results.py --help
+
+  -h, --help            show this help message and exit
+  --in_fastas IN_FASTAS [IN_FASTAS ...]     Input FASTA files
+  --in_reports IN_REPORTS [IN_REPORTS ...]  Input report files
+  --out_fasta OUT_FASTA      Output FASTA file of pooled allele sequences
+  --out_table OUT_TABLE      Output table about identified alleles
+  --ext_fastas EXT_FASTAS    Filename extension of input FASTA files to be removed for sample names
+  --ext_reports EXT_REPORTS  Filename extension of input report files to be removed for sample names
+```
 
 
 
 ### 3.4. Clustering pooled allele sequences<a name = "seq_clustering" />
 
-Despite the demonstration below, it is not necessary to cluster alleles based on complete sequence identity. Users may want to tolerate a few mismatches for their study. This is a feature differing from the SRST2-based pipeline described in Section [2](#guide_srst2).
+Despite the demonstration that follows, it is not necessary to cluster alleles based on complete sequence identity. Users may want to tolerate a few mismatches for their study. This is a feature differing from the SRST2-based pipeline described in Section [2](#guide_srst2).
 
 ```bash
 # Clustering based on complete sequence identity
-cd-hit-est -i alleles.fna -o alleles_rep.fna -c 1.0 -d 0 -s 0.0 -aL 1.0 -aS 1.0 -g 1
+cd-hit-est -i alleles.fna -o alleles_rep.fna -d 0 -c 1.0 -s 1.0
 
 # Tabulate clustering results from cd-hit-est
 python PAMmaker/utility/tabulate_cdhit.py alleles_rep.fna.clstr > alleles_rep.fna.clstr.tsv
@@ -298,26 +307,31 @@ python PAMmaker/utility/tabulate_cdhit.py alleles_rep.fna.clstr > alleles_rep.fn
 
 
 
-### 3.5. Creating an allelic PAM from tabulated CD-HIT-EST output<a name = "makePAM" />
+### 3.5. Creating an allelic PAM from the tabulated CD-HIT-EST output<a name = "makePAM" />
+
+This final step is carried out by script `clusters2pam.py`. Each allele in the output table is named after its best match in the reference database. An extended allele identifier `.var*` is added to the allele label when there is no perfect match to any of reference alleles.
+
+
+
+**Example command**
 
 ```bash
 python PAMmaker/ariba/clusters2pam.py -i alleles_rep.fna.clstr.tsv -om allelic_PAM.tsv -ot alleles_rep.fna.clstr_updated.tsv
-
-# Script parameters
-python clusters2pam.py -h
-usage: clusters2pam.py [-h] -i I [-om OM] [-ot OT]
-
-Creating an allelic presence-absence matrix from a table of sequence clusters
-
-optional arguments:
-  -h, --help  show this help message and exit
-  -i I        Input FASTA files
-  -om OM      Output presence-absence matrix in TSV format
-  -ot OT      Output table about sequence clusters
 ```
 
 Outputs of this example:
 
 - `allelic_PAM.tsv`: The objective allelic PAM;
 - `alleles_rep.fna.clstr_updated.tsv`: A table of clustering information, including cluster IDs (`gene`) and sample names.
+
+**Parameters**
+
+```bash
+python clusters2pam.py --help
+
+  -h, --help  show this help message and exit
+  -i I        Input tab-delimited table of clusters from CD-HIT-EST
+  -om OM      Output presence-absence matrix in TSV format
+  -ot OT      Output table about sequence clusters and allele labels
+```
 

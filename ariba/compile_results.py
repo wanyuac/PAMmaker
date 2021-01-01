@@ -62,7 +62,7 @@ def main():
                 table_out.write("\t".join([s] + list(map(str, list(row) + [cov_perc]))) + "\n")  # The map function applies str() to every element of a list.
             else:
                 """
-                It is normal that an allele from the record file is absent from the FASTA file due to insufficient nucleotide
+                It is normal that an allele from the report file is absent from the FASTA file due to insufficient nucleotide
                 identity or coverage following cut-offs set for ARIBA runs.
                 """
                 print("Notice: allele ID %s is not found in %s. Skipped this allele." % (ctg, s + args.ext_fastas), file = sys.stderr)
