@@ -302,7 +302,7 @@ Despite the demonstration that follows, it is not necessary to cluster alleles b
 cd-hit-est -i alleles.fna -o alleles_rep.fna -d 0 -c 1.0 -s 1.0
 
 # Tabulate clustering results from cd-hit-est
-python PAMmaker/utility/tabulate_cdhit.py alleles_rep.fna.clstr > alleles_rep.fna.clstr.tsv
+python PAMmaker/utility/tabulate_cdhit.py -i alleles_rep.fna.clstr > alleles_rep.fna.clstr.tsv
 ```
 
 
